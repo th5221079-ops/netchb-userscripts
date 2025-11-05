@@ -1,12 +1,16 @@
 // ==UserScript==
 // @name         Invoice Upload 秒选+防反勾（稳态强制版）
 // @namespace    https://netchb.com/
-// @version      1.3.3
+// @version      1.3.4
 // @description  进入页面即刻选择下拉并强制保持勾选状态，避免页面后续脚本把勾选“弹回”
 // @match        https://www.netchb.com/app/entry/invoice/editInvoiceUpload.do*
+// @match        https://netchb.com/app/entry/invoice/editInvoiceUpload.do*
+// @match        https://*.netchb.com/app/entry/invoice/editInvoiceUpload.do*
+// @include      /^https:\/\/[^\/]*netchb\.com\/app\/entry\/invoice\/.*InvoiceUpload\.do.*$/
 // @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
 // @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
-// @run-at       document-idle
+// @run-at       document-start
+// @inject-into  content
 // @grant        none
 // ==/UserScript==
 
@@ -35,7 +39,6 @@
       type: "select", value: "OR1 - Identify Certified Organic Products" }
   ];
 
-  // ===== 工具 =====
   const $x = (xp, ctx = document) =>
     document.evaluate(xp, ctx, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue || null;
 
@@ -56,7 +59,6 @@
       el.checked = desired;
       fireChange(el);
     } else {
-      // 某些站点只监听 change；再触发一次确保联动
       fireChange(el);
     }
     return true;
@@ -66,9 +68,7 @@
   function setSelectSmart(selectEl, targetRaw) {
     const t = norm(targetRaw);
     const tTok = token(t);
-    const opts = Array.from(selectEl.options).map(o => ({
-      el:o, text:norm(o.text), val:norm(o.value), tok:token(norm(o.text))
-    }));
+    const opts = Array.from(selectEl.options).map(o => ({ el:o, text:norm(o.text), val:norm(o.value), tok:token(norm(o.text)) }));
     let hit = opts.find(o => o.text === t)
            ||  opts.find(o => o.val  === t)
            ||  (tTok && (opts.find(o => o.tok === tTok) || opts.find(o => o.val === tTok)))
@@ -94,12 +94,10 @@
 
   // ===== 主流程：瞬时应用 + 短时“稳态保活” =====
   function applyOnce() {
-    // 1) 勾选：发现就强制为选中
     for (const a of ACTIONS.filter(z => z.type === 'check')) {
       const el = $x(a.finder);
       if (el) ensureChecked(el, !!a.checked);
     }
-    // 2) 下拉：一出现就秒选（并发）
     for (const a of ACTIONS.filter(z => z.type === 'select')) {
       const el = $x(a.finder);
       if (el) selectWhenReady(el, a.value);
@@ -108,4 +106,49 @@
           const found = $x(a.finder);
           if (found) { obs.disconnect(); selectWhenReady(found, a.value); }
         });
-        obs.observe(document.documentElement || document.body, { childList: true, subtre
+        obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+        setTimeout(() => obs.disconnect(), 15000);
+      }
+    }
+  }
+
+  function enforceFor(durationMs = 3000) {
+    const start = Date.now();
+    const obs = new MutationObserver(() => {
+      for (const a of ACTIONS.filter(z => z.type === 'check')) {
+        const el = $x(a.finder);
+        if (el) ensureChecked(el, !!a.checked);
+      }
+      if (Date.now() - start > durationMs) obs.disconnect();
+    });
+    obs.observe(document.documentElement || document.body, { attributes: true, childList: true, subtree: true });
+    const t = setInterval(() => {
+      for (const a of ACTIONS.filter(z => z.type === 'check')) {
+        const el = $x(a.finder);
+        if (el) ensureChecked(el, !!a.checked);
+      }
+      if (Date.now() - start > durationMs) clearInterval(t);
+    }, 200);
+  }
+
+  // 早注入，等待 DOM 可交互
+  const start = () => { applyOnce(); enforceFor(3000); };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+
+  let last = 0;
+  const obsPage = new MutationObserver(() => {
+    const now = Date.now();
+    if (now - last < 600) return;
+    last = now;
+    applyOnce();
+  });
+  obsPage.observe(document.documentElement || document.body, { childList: true, subtree: true });
+
+  // 可见调试
+  console.log('[invoice_upload_stable] active on', location.href);
+})();
