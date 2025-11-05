@@ -1,32 +1,25 @@
 // ==UserScript==
 // @name         Invoice Upload 秒选+防反勾（稳态强制版）
 // @namespace    https://netchb.com/
-// @version      1.3.4
+// @version      1.3.5
 // @description  进入页面即刻选择下拉并强制保持勾选状态，避免页面后续脚本把勾选“弹回”
 // @match        https://www.netchb.com/app/entry/invoice/editInvoiceUpload.do*
-// @match        https://netchb.com/app/entry/invoice/editInvoiceUpload.do*
-// @match        https://*.netchb.com/app/entry/invoice/editInvoiceUpload.do*
-// @include      /^https:\/\/[^\/]*netchb\.com\/app\/entry\/invoice\/.*InvoiceUpload\.do.*$/
 // @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
 // @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
-// @run-at       document-start
-// @inject-into  content
+// @run-at       document-idle
 // @grant        none
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  // —— 目标动作：勾选应为 true；下拉选定指定项 ——
   const ACTIONS = [
-    // 勾选（强制保持选中）
     { finder: "//input[@name='disclaimFda'][@value='on'][@id='disF']",              type: "check",  checked: true },
     { finder: "//input[@name='disclaimEpa'][@value='on'][@id='disE']",              type: "check",  checked: true },
     { finder: "//input[@name='disclaimAphis'][@value='on'][@id='disA']",            type: "check",  checked: true },
     { finder: "//input[@name='disclaimNhtsa'][@value='on'][@id='disN']",            type: "check",  checked: true },
     { finder: "//input[@name='disclaimAmsOrganic'][@value='on'][@id='disAmsOrg']",  type: "check",  checked: true },
 
-    // 下拉（可见文本 / value / 代码前缀均可）
     { finder: "//select[@name='disclaimEpaReason'][@id='disEpaR']",
       type: "select", value: "A - Product is not regulated by this agency" },
     { finder: "//select[@name='disclaimAphisReason'][@id='disAphisR']",
@@ -51,7 +44,6 @@
     el.dispatchEvent(new Event('blur',   { bubbles: true }));
   };
 
-  // —— 勾选：不再用 click（避免二次切换），直接强制状态 + 事件 ——
   function ensureChecked(el, desired) {
     const isToggle = el && el.tagName === 'INPUT' && /checkbox|radio/i.test(el.type || '');
     if (!isToggle) return false;
@@ -64,11 +56,12 @@
     return true;
   }
 
-  // —— 下拉智能选择 ——
   function setSelectSmart(selectEl, targetRaw) {
     const t = norm(targetRaw);
     const tTok = token(t);
-    const opts = Array.from(selectEl.options).map(o => ({ el:o, text:norm(o.text), val:norm(o.value), tok:token(norm(o.text)) }));
+    const opts = Array.from(selectEl.options).map(o => ({
+      el:o, text:norm(o.text), val:norm(o.value), tok:token(norm(o.text))
+    }));
     let hit = opts.find(o => o.text === t)
            ||  opts.find(o => o.val  === t)
            ||  (tTok && (opts.find(o => o.tok === tTok) || opts.find(o => o.val === tTok)))
@@ -92,7 +85,6 @@
     });
   }
 
-  // ===== 主流程：瞬时应用 + 短时“稳态保活” =====
   function applyOnce() {
     for (const a of ACTIONS.filter(z => z.type === 'check')) {
       const el = $x(a.finder);
@@ -131,14 +123,8 @@
     }, 200);
   }
 
-  // 早注入，等待 DOM 可交互
-  const start = () => { applyOnce(); enforceFor(3000); };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, { once: true });
-  } else {
-    start();
-  }
+  applyOnce();
+  enforceFor(3000);
 
   let last = 0;
   const obsPage = new MutationObserver(() => {
@@ -149,6 +135,4 @@
   });
   obsPage.observe(document.documentElement || document.body, { childList: true, subtree: true });
 
-  // 可见调试
-  console.log('[invoice_upload_stable] active on', location.href);
 })();
