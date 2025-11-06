@@ -4,8 +4,8 @@
 // @version      1.2.2
 // @description  进入编辑DO页面即刻执行：点击/填值；若元素稍后出现则一出现立即执行
 // @match        https://www.netchb.com/app/entry/editDeliveryOrder.do*
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/do_instant.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/do_instant.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/do_instant.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/do_instant.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
