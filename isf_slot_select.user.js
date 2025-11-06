@@ -7,8 +7,8 @@
 // @match        https://www.netchb.com/app/entry/isf.do*
 // @run-at       document-idle
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/isf_slot_select.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/isf_slot_select.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/isf_slot_select.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/isf_slot_select.user.js
 // ==/UserScript==
 
 (function () {
