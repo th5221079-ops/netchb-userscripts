@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止 + F10关闭）
 // @namespace    tommy.tools
-// @version      1.6.1
+// @version      1.6.2
 // @description  未完成时执行一次；完成后（选到A）停止并阻止回切。支持按 F10 立即关闭（本页会话内不再动作）。
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
