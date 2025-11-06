@@ -10,8 +10,8 @@
 // @match        *://*.descartes.com/*
 // @grant        none
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/ams_highlight.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/ams_highlight.user.js
+// @updateURL   https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/ams_highlight.user.js
+// @downloadURL https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/ams_highlight.user.js
 // ==/UserScript==
 
 (function() {
