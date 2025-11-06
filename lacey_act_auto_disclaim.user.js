@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止）
+// @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止 + F10关闭）
 // @namespace    tommy.tools
-// @version      1.4.3
-// @description  仅当“未完成”（未按 Disclaim 或未选 A）时才执行一次流程；完成后（选到 A）在当前页面停止后续动作并拦截任何再次切换。
+// @version      1.4.4
+// @description  未完成时执行一次；完成后（选到A）停止并阻止回切。支持按 F10 立即关闭（本页会话内不再动作）。
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
 // @run-at       document-idle
@@ -14,12 +14,55 @@
 (function () {
   'use strict';
 
+  // ---------- 全局状态 ----------
+  const PAGE_KEY = location.pathname + location.search;
+  const STOP_KEY = 'lacey_manual_stop:' + PAGE_KEY; // F10 手动关闭标志
+  let stopped = false;
+  const observers = new Set();
+  const listeners = [];
+  function addListener(target, type, handler, options){
+    target.addEventListener(type, handler, options);
+    listeners.push({target, type, handler, options});
+  }
+  function cleanupAll(){
+    for(const o of observers){ try{o.disconnect()}catch{} }
+    observers.clear();
+    for(const {target, type, handler, options} of listeners){
+      try{ target.removeEventListener(type, handler, options) }catch{}
+    }
+    listeners.length = 0;
+    const b = document.getElementById('lacey-banner'); if(b) try{b.remove()}catch{}
+  }
+
   const LOG = (...a)=>{ try{GM_log?.(a.join(' '))}catch{} console.log('[LaceyAct]', ...a)};
-  const banner=(m,ok=true)=>{ const id='lacey-banner'; let el=document.getElementById(id);
+  const banner=(m,ok=true)=>{
+    const id='lacey-banner'; let el=document.getElementById(id);
     if(!el){ el=document.createElement('div'); el.id=id; document.documentElement.appendChild(el); }
-    el.textContent=(ok?'✅ ':'⚠️ ')+m; Object.assign(el.style,{position:'fixed',right:'16px',bottom:'16px',background:ok?'#16a34a':'#eab308',color:'#fff',padding:'10px 12px',borderRadius:'10px',zIndex:2147483647,boxShadow:'0 4px 12px rgba(0,0,0,.25)'});
+    el.textContent=(ok?'✅ ':'⚠️ ')+m;
+    Object.assign(el.style,{position:'fixed',right:'16px',bottom:'16px',background:ok?'#16a34a':'#eab308',color:'#fff',padding:'10px 12px',borderRadius:'10px',zIndex:2147483647,boxShadow:'0 4px 12px rgba(0,0,0,.25)',fontSize:'14px'});
     clearTimeout(el.__tm); el.__tm=setTimeout(()=>el.remove(),5000);
   };
+
+  // ---------- F10 手动关闭 ----------
+  function markStopped(){
+    stopped = true;
+    try{ sessionStorage.setItem(STOP_KEY,'1'); }catch{}
+    cleanupAll();
+    banner('已手动关闭（F10）。本页会话内不再动作。', false);
+  }
+  try{
+    if(sessionStorage.getItem(STOP_KEY)==='1'){ return; }
+  }catch{}
+
+  addListener(window, 'keydown', (e)=>{
+    if(e.key === 'F10'){
+      e.preventDefault();
+      e.stopPropagation();
+      markStopped();
+    }
+  }, true);
+
+  // ---------- 工具函数 ----------
   const norm = s=>String(s||'').replace(/\s+/g,' ').trim();
 
   function isTargetTr(tr){
@@ -40,18 +83,10 @@
     return null;
   }
 
-  // 完成标记：一旦选择到 A，则在当前页面会话内阻止后续动作
-  function completedKey(idStr){
-    return 'lacey_complete:'+location.pathname+location.search+':'+idStr;
-  }
-  function isCompleted(idStr){
-    try{ return sessionStorage.getItem(completedKey(idStr))==='1'; }catch{ return false; }
-  }
-  function markCompleted(idStr){
-    try{ sessionStorage.setItem(completedKey(idStr), '1'); }catch{}
-  }
+  function completedKey(idStr){ return 'lacey_complete:'+PAGE_KEY+':'+idStr; }
+  function isCompleted(idStr){ try{ return sessionStorage.getItem(completedKey(idStr))==='1'; }catch{ return false; } }
+  function markCompleted(idStr){ try{ sessionStorage.setItem(completedKey(idStr),'1'); }catch{} }
 
-  // 拦截后续切换（防止点回 Undisclaim/再次 Disclaim）
   function installHardStop(idStr){
     const clickBlocker = (e)=>{
       const t = e.target;
@@ -64,7 +99,7 @@
         }
       }
     };
-    document.addEventListener('click', clickBlocker, true);
+    addListener(document, 'click', clickBlocker, true);
 
     try{
       if(typeof unsafeWindow!=='undefined' && typeof unsafeWindow.disclaim==='function'){
@@ -92,6 +127,7 @@
   }
 
   function selectA(idStr){
+    if(stopped) return false;
     const sel = document.getElementById('odr'+idStr);
     if(sel instanceof HTMLSelectElement && sel.options.length>=2){
       if(sel.selectedIndex !== 1){
@@ -111,31 +147,28 @@
     if(selectA(idStr)) return;
     const t0=Date.now();
     const obs=new MutationObserver(()=>{
+      if(stopped){ obs.disconnect(); return; }
       if(selectA(idStr) || (Date.now()-t0)>timeoutMs) obs.disconnect();
     });
+    observers.add(obs);
     obs.observe(document.documentElement,{childList:true,subtree:true});
-    setTimeout(()=>obs.disconnect(), timeoutMs+200);
+    setTimeout(()=>{ try{obs.disconnect()}catch{}; observers.delete(obs); }, timeoutMs+300);
   }
 
   function clickDisclaimIfNeeded(btn){
     const {idStr, value} = getBtnIdMode(btn);
     if(!idStr) return {ok:false,idStr:null};
-    // 如果已经是 Undisclaim（代表已 Disclaim），不再点按钮，直接选 A
-    if(value==='Undisclaim'){
+    if(value==='Undisclaim'){ // 已经 Disclaim
       LOG('Already Disclaimed for id', idStr, '→ only select A');
       return {ok:true,idStr,skipped:true};
     }
-    // value==='Disclaim' 时点击一次
-    try{
-      btn.click();
-      return {ok:true,idStr,skipped:false};
-    }catch{}
+    try{ btn.click(); return {ok:true,idStr,skipped:false}; }catch{}
     try{
       if(typeof unsafeWindow!=='undefined' && typeof unsafeWindow.disclaim==='function'){
         unsafeWindow.disclaim(Number(idStr), 1);
         return {ok:true,idStr,skipped:false};
       }
-    }catch(e){ LOG('direct call err',e); }
+    }catch(e){ LOG('direct call err', e); }
     try{
       if(typeof btn.onclick==='function'){
         btn.onclick.call(btn, new MouseEvent('click',{bubbles:true,cancelable:true}));
@@ -146,6 +179,7 @@
   }
 
   // ===== 主流程 =====
+  if(stopped) return;
   const tr = findTargetTr();
   if(!tr){ banner('未找到 “PGA: Lacey Act” 行（仅当未完成时才执行）', false); return; }
   tr.style.outline='2px solid #16a34a'; setTimeout(()=>{tr.style.outline=''},3000);
@@ -154,7 +188,6 @@
   const info = getBtnIdMode(btn);
   if(!info.idStr){ banner('未能解析行 ID，退出', false); return; }
 
-  // 1) 若已完成（#odr<ID> 已是 A），直接阻止后续任何切换并退出
   const selNow = document.getElementById('odr'+info.idStr);
   if(selNow instanceof HTMLSelectElement && selNow.options.length>=2 && selNow.selectedIndex===1){
     banner('检测到已完成（A 已选择）；停止后续动作', true);
@@ -162,18 +195,19 @@
     markCompleted(info.idStr);
     return;
   }
-  // 若此前已标记完成，也直接退出
   if(isCompleted(info.idStr)){
     banner('本页该项已完成；不再重复', true);
     installHardStop(info.idStr);
     return;
   }
 
-  // 2) 未完成：本次执行一次流程（即使之前已尝试过，只要未完成仍会尝试一次）
-  banner('未完成 → 执行一次流程', true);
+  banner('未完成 → 执行一次流程（按 F10 可关闭）', true);
   const res = clickDisclaimIfNeeded(btn);
   if(!res.ok){ banner('未能触发 Disclaim（将继续尝试选择 A）', false); }
 
-  // 无论是否点击成功，都尝试把 #odr<ID> 选为 A；若下拉稍后出现则等待
-  setTimeout(()=> waitAndSelectA(info.idStr), 150);
-})();
+  setTimeout(()=>{ if(!stopped) waitAndSelectA(info.idStr); }, 150);
+})();"""
+path = "/mnt/data/lacey_act_auto_disclaim.rununtil-complete.F10close.user.js"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(code)
+path ​:contentReference[oaicite:0]{index=0}​
