@@ -4,8 +4,8 @@
 // @version      1.3.5
 // @description  进入页面即刻选择下拉并强制保持勾选状态，避免页面后续脚本把勾选“弹回”
 // @match        https://www.netchb.com/app/entry/invoice/editInvoiceUpload.do*
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/invoice_upload_stable.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/invoice_upload_stable.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/invoice_upload_stable.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
