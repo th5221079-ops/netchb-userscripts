@@ -5,8 +5,8 @@
 // @description  在发票上传与编辑页面自动选择 #rel 的第二个选项（option[2]），增强异步/迟加载兼容与事件触发稳健性。
 // @match        https://www.netchb.com/app/entry/invoice/processInvoiceUpload.do*
 // @match        https://www.netchb.com/app/entry/invoice/editInvoice.do*
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/netchb_rel_select.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/netchb_rel_select.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/netchb_rel_select.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/netchb_rel_select.user.js
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
