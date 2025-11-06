@@ -4,8 +4,8 @@
 // @version      1.1.0
 // @description  在指定页面自动选择下拉框并填写联系人信息与国家代码
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/sam_lacey_quick.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/sam_lacey_quick.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/sam_lacey_quick.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/sam_lacey_quick.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
