@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止 + F10关闭）
 // @namespace    tommy.tools
-// @version      1.4.5
+// @version      1.4.6
 // @description  未完成时执行一次；完成后（选到A）停止并阻止回切。支持按 F10 立即关闭（本页会话内不再动作）。
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
@@ -206,8 +206,4 @@
   if(!res.ok){ banner('未能触发 Disclaim（将继续尝试选择 A）', false); }
 
   setTimeout(()=>{ if(!stopped) waitAndSelectA(info.idStr); }, 150);
-})();"""
-path = "/mnt/data/lacey_act_auto_disclaim.rununtil-complete.F10close.user.js"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(code)
-path ​:contentReference[oaicite:0]{index=0}​
+})();
