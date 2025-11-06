@@ -8,8 +8,8 @@
 // @run-at       document-idle
 // @grant        GM_log
 // @grant        unsafeWindow
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/lacey_act_auto_disclaim.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/lacey_act_auto_disclaim.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/lacey_act_auto_disclaim.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/lacey_act_auto_disclaim.user.js
 // ==/UserScript==
 (function () {
   'use strict';
