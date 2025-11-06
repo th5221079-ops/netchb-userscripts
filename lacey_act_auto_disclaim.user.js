@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         NETCHB Lacey Act Auto Disclaim 点击（仅本页执行一次版）
+// @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止）
 // @namespace    tommy.tools
-// @version      1.4.1
-// @description  Detect 'PGA: Lacey Act' row and auto-click (Un)Disclaim; then auto-select related <select id="odr<ID>"> option[2]. Run only once per current page load.
+// @version      1.4.3
+// @description  仅当“未完成”（未按 Disclaim 或未选 A）时才执行一次流程；完成后（选到 A）在当前页面停止后续动作并拦截任何再次切换。
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
 // @run-at       document-idle
@@ -11,230 +11,169 @@
 // @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/lacey_act_auto_disclaim.user.js
 // @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/lacey_act_auto_disclaim.user.js
 // ==/UserScript==
-
 (function () {
   'use strict';
 
-  // ---- Run-once guard (per page load) ----
-  const RUN_ONCE_KEY = 'lacey_act_once:' + location.pathname + location.search;
-  try {
-    if (sessionStorage.getItem(RUN_ONCE_KEY) === '1') {
-      return; // already executed on this page load
-    }
-    // Mark as executed immediately to strictly enforce "run once"
-    sessionStorage.setItem(RUN_ONCE_KEY, '1');
-  } catch (_) {
-    // If sessionStorage is unavailable, still proceed but we will not strictly guard across re-runs.
+  const LOG = (...a)=>{ try{GM_log?.(a.join(' '))}catch{} console.log('[LaceyAct]', ...a)};
+  const banner=(m,ok=true)=>{ const id='lacey-banner'; let el=document.getElementById(id);
+    if(!el){ el=document.createElement('div'); el.id=id; document.documentElement.appendChild(el); }
+    el.textContent=(ok?'✅ ':'⚠️ ')+m; Object.assign(el.style,{position:'fixed',right:'16px',bottom:'16px',background:ok?'#16a34a':'#eab308',color:'#fff',padding:'10px 12px',borderRadius:'10px',zIndex:2147483647,boxShadow:'0 4px 12px rgba(0,0,0,.25)'});
+    clearTimeout(el.__tm); el.__tm=setTimeout(()=>el.remove(),5000);
+  };
+  const norm = s=>String(s||'').replace(/\s+/g,' ').trim();
+
+  function isTargetTr(tr){
+    if(!(tr instanceof HTMLElement)) return false;
+    if(!tr.matches('tr.ogaTitle')) return false;
+    const tds = tr.querySelectorAll('td'); if(tds.length<2) return false;
+    const leftText = norm(tds[0]?.textContent);
+    const leftStyle = norm((tds[0]?.getAttribute('style')||'').toLowerCase().replace(/\s/g,''));
+    if(!leftText.startsWith('PGA: Lacey Act')) return false;
+    if(!leftStyle.includes('width:250px')) return false;
+    const btn = tr.querySelector('input[type="button"][value="Disclaim"], input[type="button"][value="Undisclaim"]');
+    return !!btn;
   }
 
-  const AUTO_CLICK = true;
-  const CLICK_DELAY_MS = 80;
-  const USE_XPATH_FALLBACK = true;
-  const XPATH_FALLBACK = '//*[@id="livF"]/table[3]/tbody/tr[7]/td/table/tbody/tr[1]/td[2]/input';
-  const AFTER_CLICK_DELAY_MS = 120;
-
-  const LOG_TAG = '[LaceyActDetector]';
-  let clicked = false;
-
-  const log = (...args) => { try { GM_log?.(args.join(' ')); } catch (_) {} console.log(...args); };
-
-  function banner(message, ok = true) {
-    const id = 'lacey-act-detector-banner';
-    let el = document.getElementById(id);
-    if (!el) {
-      el = document.createElement('div');
-      el.id = id;
-      document.documentElement.appendChild(el);
-    }
-    el.textContent = (ok ? '✅ ' : '⚠️ ') + message;
-    el.setAttribute('role', 'status');
-    Object.assign(el.style, {
-      position: 'fixed',
-      zIndex: '2147483647',
-      right: '16px',
-      bottom: '16px',
-      padding: '10px 12px',
-      background: ok ? 'rgba(22,163,74,0.95)' : 'rgba(234,179,8,0.95)',
-      color: '#fff',
-      fontSize: '14px',
-      borderRadius: '10px',
-      boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
-      maxWidth: '520px',
-      lineHeight: '1.4',
-      cursor: 'default'
-    });
-    clearTimeout(el.__tm);
-    el.__tm = setTimeout(() => el.remove(), 6000);
-  }
-
-  const textNormalize = (s) => (s || '').replace(/\s+/g, ' ').trim();
-
-  function matchTargetRow(tr) {
-    if (!(tr instanceof HTMLElement)) return false;
-    if (!tr.matches('tr.ogaTitle')) return false;
-
-    const style = (tr.getAttribute('style') || '').toLowerCase().replace(/\s/g, '');
-    if (!style.includes('vertical-align:top')) return false;
-
-    const tds = tr.querySelectorAll('td');
-    if (tds.length < 2) return false;
-
-    const td1 = tds[0];
-    const td1Style = (td1.getAttribute('style') || '').toLowerCase().replace(/\s/g, '');
-    const td1Text = textNormalize(td1.textContent);
-    if (!td1Text.startsWith('PGA: Lacey Act')) return false;
-    if (!td1Style.includes('width:250px')) return false;
-
-    const td2 = tds[1];
-    const btn = td2.querySelector('input[type="button"][value="Disclaim"], input[type="button"][value="Undisclaim"]');
-    if (!btn) return false;
-
-    return true;
-  }
-
-  function findTargetRow(root = document) {
-    const candidates = root.querySelectorAll('tr.ogaTitle');
-    for (const tr of candidates) if (matchTargetRow(tr)) return tr;
-
-    const textHits = Array.from(root.querySelectorAll('tr')).filter(tr => /PGA:\s*Lacey\s*Act/i.test(textNormalize(tr.textContent)));
-    for (const tr of textHits) if (matchTargetRow(tr)) return tr;
-
+  function findTargetTr(){
+    for(const tr of document.querySelectorAll('tr.ogaTitle')) if(isTargetTr(tr)) return tr;
+    for(const tr of document.querySelectorAll('tr')) if(/PGA:\s*Lacey\s*Act/i.test(norm(tr.textContent)) && isTargetTr(tr)) return tr;
     return null;
   }
 
-  function xpathFindFirst(xpath, context = document) {
-    try {
-      const r = document.evaluate(xpath, context, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-      return r.singleNodeValue || null;
-    } catch (e) {
-      console.warn(LOG_TAG, 'XPath error:', e);
-      return null;
-    }
+  // 完成标记：一旦选择到 A，则在当前页面会话内阻止后续动作
+  function completedKey(idStr){
+    return 'lacey_complete:'+location.pathname+location.search+':'+idStr;
+  }
+  function isCompleted(idStr){
+    try{ return sessionStorage.getItem(completedKey(idStr))==='1'; }catch{ return false; }
+  }
+  function markCompleted(idStr){
+    try{ sessionStorage.setItem(completedKey(idStr), '1'); }catch{}
   }
 
-  function selectReasonByIdStr(idStr) {
-    if (!idStr) return false;
-    const sel = document.getElementById('odr' + idStr);
-    if (!(sel instanceof HTMLSelectElement)) return false;
-    if (sel.options.length >= 2) {
-      sel.selectedIndex = 1; // option[2]
-      sel.dispatchEvent(new Event('input', { bubbles: true }));
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-      log(LOG_TAG, '已选择 odr' + idStr + ' 的 option[2]');
-      banner('已选择下拉：#odr' + idStr + ' → 第2项', true);
+  // 拦截后续切换（防止点回 Undisclaim/再次 Disclaim）
+  function installHardStop(idStr){
+    const clickBlocker = (e)=>{
+      const t = e.target;
+      if(!(t instanceof HTMLElement)) return;
+      if(t.matches('input[type="button"][value="Undisclaim"], input[type="button"][value="Disclaim"]')){
+        const attr = t.getAttribute('onclick')||'';
+        if(new RegExp(`disclaim\\(${idStr}\\s*,`).test(attr)){
+          e.stopImmediatePropagation(); e.preventDefault();
+          LOG('Blocked toggle for id', idStr);
+        }
+      }
+    };
+    document.addEventListener('click', clickBlocker, true);
+
+    try{
+      if(typeof unsafeWindow!=='undefined' && typeof unsafeWindow.disclaim==='function'){
+        if(!unsafeWindow.__lacey_wrap_installed){
+          const orig = unsafeWindow.disclaim;
+          unsafeWindow.__lacey_block_ids = new Set();
+          unsafeWindow.disclaim = function(a,b){
+            if(unsafeWindow.__lacey_block_ids && unsafeWindow.__lacey_block_ids.has(String(a))){
+              LOG('Swallow window.disclaim for id', a, 'mode', b);
+              return;
+            }
+            return orig.apply(this, arguments);
+          };
+          unsafeWindow.__lacey_wrap_installed = true;
+        }
+        unsafeWindow.__lacey_block_ids.add(String(idStr));
+      }
+    }catch(e){ LOG('wrap disclaim err', e); }
+  }
+
+  function getBtnIdMode(btn){
+    const oc = btn?.getAttribute('onclick')||'';
+    const m = oc.match(/disclaim\((\d+)\s*,\s*(0|1)\)/i);
+    return { idStr: m?.[1]||null, mode: m?.[2]||null, value: btn?.value||'' };
+  }
+
+  function selectA(idStr){
+    const sel = document.getElementById('odr'+idStr);
+    if(sel instanceof HTMLSelectElement && sel.options.length>=2){
+      if(sel.selectedIndex !== 1){
+        sel.selectedIndex = 1; // 第二项（A）
+        sel.dispatchEvent(new Event('input',{bubbles:true}));
+        sel.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+      banner('已确保 #odr'+idStr+' 为第2项(A)', true);
+      installHardStop(idStr);
+      markCompleted(idStr);
       return true;
     }
     return false;
   }
 
-  function waitAndSelectReason(idStr, timeoutMs = 8000) {
-    if (selectReasonByIdStr(idStr)) return;
-    const t0 = Date.now();
-    const obs = new MutationObserver(() => {
-      if (selectReasonByIdStr(idStr) || (Date.now() - t0) > timeoutMs) obs.disconnect();
+  function waitAndSelectA(idStr, timeoutMs=8000){
+    if(selectA(idStr)) return;
+    const t0=Date.now();
+    const obs=new MutationObserver(()=>{
+      if(selectA(idStr) || (Date.now()-t0)>timeoutMs) obs.disconnect();
     });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => obs.disconnect(), timeoutMs + 200);
+    obs.observe(document.documentElement,{childList:true,subtree:true});
+    setTimeout(()=>obs.disconnect(), timeoutMs+200);
   }
 
-  function activateDisclaim(btn) {
-    if (!btn) return { ok: false, idStr: null, mode: null };
-
-    let idStr = null, mode = null;
-    try {
-      const attr = btn.getAttribute('onclick') || '';
-      const m = attr.match(/disclaim\((\d+)\s*,\s*(0|1)\)/i);
-      if (m) { idStr = m[1]; mode = m[2]; }
-    } catch (_) {}
-
-    try {
-      ['mouseover','mousedown','mouseup','click'].forEach(type => {
-        btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-      });
-      if (typeof btn.click === 'function') btn.click();
-      clicked = true;
-      return { ok: true, idStr, mode };
-    } catch (_) {}
-
-    try {
-      if (typeof btn.onclick === 'function') {
-        btn.onclick.call(btn, new MouseEvent('click', { bubbles: true, cancelable: true }));
-        clicked = true;
-        return { ok: true, idStr, mode };
-      }
-    } catch (_) {}
-
-    try {
-      if (idStr) {
-        const x = Number(mode ?? 1);
-        if (typeof unsafeWindow !== 'undefined' && typeof unsafeWindow.disclaim === 'function') {
-          unsafeWindow.disclaim(Number(idStr), x);
-          clicked = true;
-          return { ok: true, idStr, mode };
-        }
-        const s = document.createElement('script');
-        s.textContent = "(function(){try{ if(typeof window.disclaim==='function'){ window.disclaim(" + idStr + "," + x + "); } }catch(e){ console.error('[LaceyActDetector]','inject-call error',e); }})();";
-        (document.head || document.documentElement).appendChild(s);
-        s.remove();
-        clicked = true;
-        return { ok: true, idStr, mode };
-      }
-    } catch (e) {
-      console.error(LOG_TAG, 'direct-call error:', e);
+  function clickDisclaimIfNeeded(btn){
+    const {idStr, value} = getBtnIdMode(btn);
+    if(!idStr) return {ok:false,idStr:null};
+    // 如果已经是 Undisclaim（代表已 Disclaim），不再点按钮，直接选 A
+    if(value==='Undisclaim'){
+      LOG('Already Disclaimed for id', idStr, '→ only select A');
+      return {ok:true,idStr,skipped:true};
     }
-
-    return { ok: false, idStr, mode };
-  }
-
-  function handleFoundRow(tr) {
-    tr.style.outline = '2px solid #16a34a';
-    tr.style.outlineOffset = '2px';
-    setTimeout(() => { tr.style.outline = ''; tr.style.outlineOffset = ''; }, 8000);
-
-    log(LOG_TAG, '已找到：PGA: Lacey Act 行', tr);
-    banner('已找到：PGA: Lacey Act 行（本页仅执行一次）', true);
-
-    if (!AUTO_CLICK || clicked) return;
-
-    const insideBtn = tr.querySelector('input[type="button"][value="Disclaim"], input[type="button"][value="Undisclaim"]');
-
-    const doClick = () => {
-      let res = activateDisclaim(insideBtn);
-      if (!res.ok && USE_XPATH_FALLBACK) {
-        const xpBtn = xpathFindFirst(XPATH_FALLBACK);
-        res = activateDisclaim(xpBtn);
+    // value==='Disclaim' 时点击一次
+    try{
+      btn.click();
+      return {ok:true,idStr,skipped:false};
+    }catch{}
+    try{
+      if(typeof unsafeWindow!=='undefined' && typeof unsafeWindow.disclaim==='function'){
+        unsafeWindow.disclaim(Number(idStr), 1);
+        return {ok:true,idStr,skipped:false};
       }
-      if (res.ok) {
-        const { idStr, mode } = res;
-        log(LOG_TAG, '已自动点击', insideBtn?.value || '(XPath 按钮)', 'id=', idStr, 'mode=', mode);
-        banner('已自动点击 ' + (insideBtn?.value || 'Disclaim') + (idStr ? (' (id=' + idStr + ')') : ''), true);
-
-        // 点击( Un )Disclaim 后，自动选择 #odr<ID> 的第二项
-        if (idStr) setTimeout(() => waitAndSelectReason(idStr), AFTER_CLICK_DELAY_MS);
-      } else {
-        log(LOG_TAG, '未能点击 Disclaim/Undisclaim（可能 isTrusted/沙箱或未找到）');
-        banner('未能点击 Disclaim/Undisclaim（可能 isTrusted/沙箱或未找到）', false);
+    }catch(e){ LOG('direct call err',e); }
+    try{
+      if(typeof btn.onclick==='function'){
+        btn.onclick.call(btn, new MouseEvent('click',{bubbles:true,cancelable:true}));
+        return {ok:true,idStr,skipped:false};
       }
-    };
-
-    if (CLICK_DELAY_MS > 0) setTimeout(doClick, CLICK_DELAY_MS);
-    else queueMicrotask(doClick);
+    }catch{}
+    return {ok:false,idStr:null};
   }
 
-  // ---- Single-run scan (no continuous observer for scanning) ----
-  log(LOG_TAG, '脚本已加载(一次性扫描)，URL:', location.href);
-  const tr = findTargetRow(document);
-  if (tr) {
-    handleFoundRow(tr);
-  } else {
-    banner('未找到 “PGA: Lacey Act” 行（本页仅扫描一次）', false);
+  // ===== 主流程 =====
+  const tr = findTargetTr();
+  if(!tr){ banner('未找到 “PGA: Lacey Act” 行（仅当未完成时才执行）', false); return; }
+  tr.style.outline='2px solid #16a34a'; setTimeout(()=>{tr.style.outline=''},3000);
+
+  const btn = tr.querySelector('input[type="button"][value="Disclaim"], input[type="button"][value="Undisclaim"]');
+  const info = getBtnIdMode(btn);
+  if(!info.idStr){ banner('未能解析行 ID，退出', false); return; }
+
+  // 1) 若已完成（#odr<ID> 已是 A），直接阻止后续任何切换并退出
+  const selNow = document.getElementById('odr'+info.idStr);
+  if(selNow instanceof HTMLSelectElement && selNow.options.length>=2 && selNow.selectedIndex===1){
+    banner('检测到已完成（A 已选择）；停止后续动作', true);
+    installHardStop(info.idStr);
+    markCompleted(info.idStr);
+    return;
+  }
+  // 若此前已标记完成，也直接退出
+  if(isCompleted(info.idStr)){
+    banner('本页该项已完成；不再重复', true);
+    installHardStop(info.idStr);
+    return;
   }
 
-  // Expose minimal API (still usable once; mainly for debugging)
-  window._LaceyActDetector = {
-    forceScanOnce: () => {
-      const t = findTargetRow(document);
-      if (t) handleFoundRow(t);
-    }
-  };
+  // 2) 未完成：本次执行一次流程（即使之前已尝试过，只要未完成仍会尝试一次）
+  banner('未完成 → 执行一次流程', true);
+  const res = clickDisclaimIfNeeded(btn);
+  if(!res.ok){ banner('未能触发 Disclaim（将继续尝试选择 A）', false); }
+
+  // 无论是否点击成功，都尝试把 #odr<ID> 选为 A；若下拉稍后出现则等待
+  setTimeout(()=> waitAndSelectA(info.idStr), 150);
 })();
