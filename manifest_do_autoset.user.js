@@ -7,8 +7,8 @@
 // @match        https://www.netchb.com/app/entry/processHeader.do*
 // @run-at       document-end
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/manifest_do_autoset.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/manifest_do_autoset.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/manifest_do_autoset.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/manifest_do_autoset.user.js
 // ==/UserScript==
 
 (function() {
