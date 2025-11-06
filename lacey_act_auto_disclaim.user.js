@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         NETCHB Lacey Act Auto Disclaim 点击（自动更新版）
+// @name         NETCHB Lacey Act Auto Disclaim 点击（仅本页执行一次版）
 // @namespace    tommy.tools
-// @version      1.4.0
-// @description  Detect 'PGA: Lacey Act' row and auto-click (Un)Disclaim; then auto-select related <select id="odr<ID>"> option[2].
+// @version      1.4.1
+// @description  Detect 'PGA: Lacey Act' row and auto-click (Un)Disclaim; then auto-select related <select id="odr<ID>"> option[2]. Run only once per current page load.
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
 // @run-at       document-idle
@@ -15,6 +15,18 @@
 (function () {
   'use strict';
 
+  // ---- Run-once guard (per page load) ----
+  const RUN_ONCE_KEY = 'lacey_act_once:' + location.pathname + location.search;
+  try {
+    if (sessionStorage.getItem(RUN_ONCE_KEY) === '1') {
+      return; // already executed on this page load
+    }
+    // Mark as executed immediately to strictly enforce "run once"
+    sessionStorage.setItem(RUN_ONCE_KEY, '1');
+  } catch (_) {
+    // If sessionStorage is unavailable, still proceed but we will not strictly guard across re-runs.
+  }
+
   const AUTO_CLICK = true;
   const CLICK_DELAY_MS = 80;
   const USE_XPATH_FALLBACK = true;
@@ -22,16 +34,18 @@
   const AFTER_CLICK_DELAY_MS = 120;
 
   const LOG_TAG = '[LaceyActDetector]';
-  let reported = false;
   let clicked = false;
 
   const log = (...args) => { try { GM_log?.(args.join(' ')); } catch (_) {} console.log(...args); };
 
   function banner(message, ok = true) {
     const id = 'lacey-act-detector-banner';
-    const existed = document.getElementById(id);
-    const el = existed || document.createElement('div');
-    el.id = id;
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      document.documentElement.appendChild(el);
+    }
     el.textContent = (ok ? '✅ ' : '⚠️ ') + message;
     el.setAttribute('role', 'status');
     Object.assign(el.style, {
@@ -49,7 +63,6 @@
       lineHeight: '1.4',
       cursor: 'default'
     });
-    if (!existed) document.documentElement.appendChild(el);
     clearTimeout(el.__tm);
     el.__tm = setTimeout(() => el.remove(), 6000);
   }
@@ -174,15 +187,12 @@
   }
 
   function handleFoundRow(tr) {
-    if (reported) return;
-    reported = true;
-
     tr.style.outline = '2px solid #16a34a';
     tr.style.outlineOffset = '2px';
     setTimeout(() => { tr.style.outline = ''; tr.style.outlineOffset = ''; }, 8000);
 
     log(LOG_TAG, '已找到：PGA: Lacey Act 行', tr);
-    banner('已找到：PGA: Lacey Act 行', true);
+    banner('已找到：PGA: Lacey Act 行（本页仅执行一次）', true);
 
     if (!AUTO_CLICK || clicked) return;
 
@@ -199,7 +209,7 @@
         log(LOG_TAG, '已自动点击', insideBtn?.value || '(XPath 按钮)', 'id=', idStr, 'mode=', mode);
         banner('已自动点击 ' + (insideBtn?.value || 'Disclaim') + (idStr ? (' (id=' + idStr + ')') : ''), true);
 
-        // 新增：点击( Un )Disclaim 后，自动选择 #odr<ID> 的第二项
+        // 点击( Un )Disclaim 后，自动选择 #odr<ID> 的第二项
         if (idStr) setTimeout(() => waitAndSelectReason(idStr), AFTER_CLICK_DELAY_MS);
       } else {
         log(LOG_TAG, '未能点击 Disclaim/Undisclaim（可能 isTrusted/沙箱或未找到）');
@@ -211,37 +221,20 @@
     else queueMicrotask(doClick);
   }
 
-  function scan(root) {
-    if (reported) return;
-    const tr = findTargetRow(root);
-    if (tr) handleFoundRow(tr);
+  // ---- Single-run scan (no continuous observer for scanning) ----
+  log(LOG_TAG, '脚本已加载(一次性扫描)，URL:', location.href);
+  const tr = findTargetRow(document);
+  if (tr) {
+    handleFoundRow(tr);
+  } else {
+    banner('未找到 “PGA: Lacey Act” 行（本页仅扫描一次）', false);
   }
 
-  function observe() {
-    const obs = new MutationObserver(muts => {
-      if (reported) return;
-      for (const m of muts) {
-        if (m.type === 'childList') {
-          for (const n of m.addedNodes) if (n.nodeType === 1) scan(n);
-        } else if (m.type === 'attributes') {
-          scan(document);
-        }
-      }
-    });
-    obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
-    const stop = () => { if (reported) obs.disconnect(); else requestAnimationFrame(stop); };
-    requestAnimationFrame(stop);
-  }
-
-  log(LOG_TAG, '脚本已加载，URL:', location.href);
-  scan(document);
-  observe();
-
+  // Expose minimal API (still usable once; mainly for debugging)
   window._LaceyActDetector = {
-    forceScan: () => scan(document),
-    forceClick: () => {
-      const tr = findTargetRow(document);
-      if (tr) handleFoundRow(tr);
+    forceScanOnce: () => {
+      const t = findTargetRow(document);
+      if (t) handleFoundRow(t);
     }
   };
 })();
