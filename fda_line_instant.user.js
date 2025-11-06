@@ -6,8 +6,8 @@
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @run-at       document-idle
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/fda_line_instant.user.js
-// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/th5221079-ops/main/fda_line_instant.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/fda_line_instant.user.js
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/fda_line_instant.user.js
 // ==/UserScript==
 
 (function () {
