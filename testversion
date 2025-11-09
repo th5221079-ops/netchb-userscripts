@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         GitHub 自动更新测试脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0  // <-- **这是初始版本号**
+// @version      1.0.0  // <-- 每次更新脚本时必须增大这个版本号
 // @description  测试油猴脚本的自动更新功能
 // @author       Gemini Helper
 // @match        https://www.google.com/*
 // @grant        none
 //
-// ** 部署到 GitHub Gist 后，请替换下面的链接为您的 Gist Raw 链接 **
-// @updateURL    https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/test_autoupdate.user.js
-// @downloadURL  https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/test_autoupdate.user.js
+// ** 请替换下面的链接为您实际获取到的 Raw 链接 **
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/testversion
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/testversion
 //
 // ==/UserScript==
 
