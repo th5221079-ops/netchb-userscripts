@@ -21,7 +21,7 @@
         console.log("--- 油猴脚本执行 ---");
         
         // ** 这个日志和显示的版本号需要与 @version 一致，便于测试 **
-        const currentVersion = '1.0.0'; 
+        const currentVersion = '1.0.1'; 
         console.log(`当前脚本版本: ${currentVersion}`); 
         
         // 在页面左上角显示一条消息
