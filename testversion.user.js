@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub 自动更新测试脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0  // <-- 每次更新时必须增大这个版本号！
+// @version      1.0.1  // <-- 每次更新时必须增大这个版本号！
 // @description  测试油猴脚本的自动更新功能
 // @author       Gemini Helper
 // @match        https://www.google.com/*
