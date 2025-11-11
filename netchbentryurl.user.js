@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         NETCHB 显示末7位（复制为超链接）
 // @namespace    https://netchb-helper.local
-// @version      1.4.0
-// @description  右上角显示“7位数字”（外观数字=链接）；复制时把剪贴板写成富格式超链接（显示7位数字、目标为URL）
+// @version      1.4.1
+// @description  右上角显示“7位数字”（外观数字=链接）；复制时把剪贴板写成富格式超链接（显示7位数字、目标为URL）。兼容 viewEntry.do 与 entryMenu.do
 // @match        https://www.netchb.com/*
 // @run-at       document-idle
 // @grant        none
@@ -19,12 +19,19 @@
   window.__netchb_last7_inited__ = true;
 
   const url = new URL(location.href);
-  if (!url.pathname.includes('/app/entry/viewEntry.do')) return;
+  const path = url.pathname;
+
+  // 兼容：/app/entry/viewEntry.do 与 /app/entry/entryMenu.do
+  const supported =
+    path.includes('/app/entry/viewEntry.do') ||
+    path.includes('/app/entry/entryMenu.do');
+
+  if (!supported) return;
 
   // 提取 URL 中的末7位数字（优先 entryNo 参数）
-  const entryNo = (url.searchParams.get('entryNo') || '').trim();
+  const entryNoParam = (url.searchParams.get('entryNo') || '').trim();
   let last7 = '';
-  if (entryNo) last7 = entryNo.replace(/\D+/g, '').slice(-7);
+  if (entryNoParam) last7 = entryNoParam.replace(/\D+/g, '').slice(-7);
   if (!last7) {
     const m = location.href.match(/(\d{7})(?!.*\d)/);
     last7 = m ? m[1] : '';
@@ -138,10 +145,9 @@
   function writeClipboardAsRichLink(e, displayText, urlText) {
     try {
       const html = `<a href="${urlText}">${escapeHtml(displayText)}</a>`;
-      e.clipboardData.setData('text/html', html);   // 富格式（适配多数字处理器/邮件/文档）
-      e.clipboardData.setData('text/plain', displayText); // 回退：只显示文本
-      // 可选：也放入 URI（有的应用会识别成可点击链接）
-      e.clipboardData.setData('text/uri-list', urlText);
+      e.clipboardData.setData('text/html', html);   // 富格式
+      e.clipboardData.setData('text/plain', displayText); // 回退
+      e.clipboardData.setData('text/uri-list', urlText);  // 兼容
       e.preventDefault();
     } catch { /* ignore */ }
   }
