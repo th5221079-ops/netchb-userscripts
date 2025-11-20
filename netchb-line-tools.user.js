@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         NETCHB 行项目工具（顺序开TAB + 快速兜底）
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/yourname/yourrepo
 // @version      0.11
 // @description  发票页按 LIGHT/DARK 顺序依次在后台新标签打开；明细页检测第2行第2列；新TAB 尽量开在当前TAB右侧
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
@@ -9,6 +9,8 @@
 // @grant        GM_openInTab
 // @grant        GM_setValue
 // @grant        GM_addValueChangeListener
+// @downloadURL  https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/netchb-line-tools.user.js
+// @updateURL    https://raw.githubusercontent.com/th5221079-ops/netchb-userscripts/main/netchb-line-tools.user.js
 // ==/UserScript==
 
 (function () {
@@ -156,11 +158,10 @@
         queueIndex += 1;
         waitingForChild = true;
 
-        // ★ 关键：active:false 后台打开；insert:true 要求在当前 TAB 右侧；setParent:true 关闭子TAB后回到父TAB
         GM_openInTab(item.href, {
-            active: false,
-            insert: true,
-            setParent: true
+            active: false,   // 后台打开
+            insert: true,    // 尽量在当前 tab 右侧
+            setParent: true  // 记住父 tab
         });
 
         showToast(
