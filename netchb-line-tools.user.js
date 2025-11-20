@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         NETCHB 行项目工具（顺序开TAB + 快速兜底）
 // @namespace    https://github.com/yourname/yourrepo
-// @version      0.11
+// @version      0.12
 // @description  发票页按 LIGHT/DARK 顺序依次在后台新标签打开；明细页检测第2行第2列；新TAB 尽量开在当前TAB右侧
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/invoice/editInvoice.do?method=viewInvoice&invoiceId*
+// @match        https://www.netchb.com/app/entry/invoice/processInvoice.do*
 // @run-at       document-end
 // @grant        GM_openInTab
 // @grant        GM_setValue
@@ -18,6 +19,11 @@
 
     const href = location.href;
     const FALLBACK_TIMEOUT_MS = 1200; // 超时兜底：1.2 秒
+
+    const IS_LINE_PAGE = href.includes('processLineItemValue.do');
+    const IS_INVOICE_PAGE =
+        href.includes('editInvoice.do?method=viewInvoice') ||
+        href.includes('processInvoice.do');
 
     // ---------- 通用 ----------
     function getElementByXPath(xpath) {
@@ -102,7 +108,7 @@
     }
 
     // 明细页加载完成向父TAB发信号
-    if (href.includes('processLineItemValue.do')) {
+    if (IS_LINE_PAGE) {
         GM_setValue('netchb_child_loaded', Date.now());
     }
 
@@ -195,7 +201,7 @@
     }
 
     // 只在发票页监听子 TAB 的“加载完成”信号
-    if (href.includes('editInvoice.do?method=viewInvoice')) {
+    if (IS_INVOICE_PAGE) {
         GM_addValueChangeListener('netchb_child_loaded', function (name, oldValue, newValue, remote) {
             if (!remote) return;
             if (!sequenceRunning || !waitingForChild) return;
@@ -235,10 +241,10 @@
         btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
 
         btn.addEventListener('click', () => {
-            if (href.includes('processLineItemValue.do')) {
+            if (IS_LINE_PAGE) {
                 watchLineItemPage();
                 showToast('▶️ 已启动：明细页 XPATH 检测');
-            } else if (href.includes('editInvoice.do?method=viewInvoice')) {
+            } else if (IS_INVOICE_PAGE) {
                 startInvoiceSequence();
             } else {
                 showToast('当前页面不在脚本支持的 URL 列表中');
