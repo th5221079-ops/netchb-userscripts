@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NETCHB Lacey Act Auto Disclaim（未完成可重复尝试，选A后停止 + F10关闭）
 // @namespace    tommy.tools
-// @version      1.6.7
+// @version      1.6.8
 // @description  未完成时执行一次；完成后（选到A）停止并阻止回切。支持按 F10 立即关闭（本页会话内不再动作）。
 // @match        https://www.netchb.com/app/entry/line/processLineItemValue.do*
 // @match        https://www.netchb.com/app/entry/line/processLineItem.do*
@@ -20,18 +20,25 @@
   let stopped = false;
   const observers = new Set();
   const listeners = [];
+
   function addListener(target, type, handler, options){
     target.addEventListener(type, handler, options);
     listeners.push({target, type, handler, options});
   }
+
   function cleanupAll(){
-    for(const o of observers){ try{o.disconnect()}catch{} }
+    for(const o of observers){
+      try { o.disconnect(); } catch {}
+    }
     observers.clear();
+
     for(const {target, type, handler, options} of listeners){
-      try{ target.removeEventListener(type, handler, options) }catch{}
+      try { target.removeEventListener(type, handler, options); } catch {}
     }
     listeners.length = 0;
-    const b = document.getElementById('lacey-banner'); if(b) try{b.remove()}catch{}
+
+    // 不再强制移除 lacey-banner，让它按 banner() 的 5 秒定时自己消失
+    // const b = document.getElementById('lacey-banner'); if(b) try{b.remove()}catch{}
   }
 
   const LOG = (...a)=>{ try{GM_log?.(a.join(' '))}catch{} console.log('[LaceyAct]', ...a)};
